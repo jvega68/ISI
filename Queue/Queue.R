@@ -1,6 +1,6 @@
 # Adaptación del programa de Law y Kelton (2000) para modelo M/M/1
 # Elaborado por: Jorge de la Vega
-# Fecha: marzo 2016 para el curso Simulación 2016
+# Fecha: May 2024 
 
 #Este programa simula una linea de espera con un servidor, de acuerdo a los principios de
 #DES (Discrete event Simulation).Considera la ejecución de procedimientos en bloques.
