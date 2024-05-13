@@ -82,7 +82,7 @@ for(i in 1:num_politicas){
     # lee la política a considerar (s,S)
     s <<- politica[[i]][1] 
     S <<- politica[[i]][2]
-    inicializa()
+    inicializa(inv_inicial)
     repeat{
       tiempo()
       actualiza_estadisticas_tiempo_promedio()
