@@ -53,8 +53,8 @@ minv  <- function(prin = F){
                     c(60,80),
                     c(60,100))
    
-  nmeses = 120
-  inv_inicial = 60
+  nmeses <<- 120
+  inv_inicial <<- 60
   DD <<- c(1/6, 1/3, 1/3, 1/6) 
   ndemandas <<- length(DD) 
   mtd <<- 10
