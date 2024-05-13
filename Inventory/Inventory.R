@@ -101,7 +101,7 @@ for(i in 1:num_politicas){
 
 
   
-inicializa <- function(){
+inicializa <- function(inv_inicial){
   reloj <<- 0  # inicializa el reloj de simulación
   # inicializa variables de estado
   inv_nivel <<- inv_inicial  
