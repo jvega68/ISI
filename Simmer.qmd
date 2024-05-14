@@ -1,0 +1,184 @@
+---
+title: "Ejemplo modelo de puntos referenciados"
+author: "Jorge de la Vega"
+lang: es
+date: 06/05/24
+format: 
+  html:
+    page-layout: full
+    html-math-method: katex
+    embed-resources: true
+editor_options: 
+  chunk_output_type: console
+---
+
+
+# Examples with simmer
+
+```{r}
+#| message: false
+#| warning: false
+library(simmer)
+library(simmer.plot)
+```
+
+
+## Simpler example: one server and many clients arriving at random
+
+Consider a single server with service time $N(10,4)$ and clients have interarrival times $exp(1/5)$  (one client every five minutes)
+
+
+```{r}
+client <- 
+  trajectory("Client") %>% 
+  #log_("Here I am") %>%   # can send a message for each arrive
+  seize("server") %>%
+  timeout(function() rnorm(1,10,2)) %>% # service time
+  release("server") # %>%
+  #log_("Finished")
+
+shop <- 
+  simmer("shop") %>%   #initializes a simulation environment
+  add_resource("server", 1) %>%
+  add_generator("Client", client, function() rexp(1,1/5))
+
+# Run a replication 100 minutes. 
+shop %>% run(until  = 100)
+
+# Monitor arrivals of clients, and compute the waiting time in queue
+# activity_time is service time. 
+shop %>% 
+  get_mon_arrivals() %>%
+  transform(waiting_time = end_time -start_time - activity_time)
+  
+# Monitor server
+shop %>% get_mon_resources()
+
+# Monitoring the process
+resources <- get_mon_resources(shop)
+plot(resources, metric = "utilization")
+plot(resources, metric = "usage", steps = T)
+```
+
+
+## Replications of the simulations
+
+ Simulate the process for 8 hrs (8*60 = 480 minutes) and replicate 100 times
+ 
+```{r}
+# simulate 8 hours 100 times
+envs <- lapply(1:100, 
+               function(i) {
+                simmer("shop") %>% 
+                add_resource("server",1) %>%
+                add_generator("Client", client, function() rexp(1, 1/5)) %>%
+                run(until = 480)})
+```
+
+ We can obtain performance metrics from the runs
+
+```{r}
+plot(get_mon_resources(envs), metric = "utilization")
+plot(get_mon_resources(envs), metric = "usage", items = "server")
+plot(get_mon_arrivals(envs), metric = "waiting_time")
+```
+
+Consider adding a total of three servers
+
+```{r}
+# simulate 8 hours 100 times
+envs <- lapply(1:100, 
+               function(i) {
+                simmer("shop") %>% 
+                add_resource("server",3) %>%
+                add_generator("Client", client, function() rexp(1, 1/5)) %>%
+                run(until = 480)})
+```
+
+```{r}
+plot(get_mon_resources(envs), metric = "utilization")
+
+# number of servers busy during the day 
+plot(get_mon_resources(envs), metric = "usage", items = "server")
+
+# number of clients waiting for service
+plot(get_mon_resources(envs), metric = "usage", items = "queue")
+
+# waiting time
+plot(get_mon_arrivals(envs),  metric = "waiting_time")
+```
+
+
+## Several counters with individual queues
+
+Each counter is assumed to have its own queue. Each client has to decide which queue to join, usually decides to join the shortest queue. There are several policies that can be considered
+
+- `shortest-queue`: the resource selects the shortest queue
+- `round-robin`:  resources will be selected in a cyclical nature
+- `first-available`:  the first available resource is selected
+- `random`: a resource is randomly selected
+
+```{r}
+client <-
+  trajectory("Client") %>%
+  select(c("server1", "server2"), policy = "shortest-queue") %>%
+  seize_selected() %>%
+  timeout(function() rnorm(1,10,4)) %>%
+  release_selected() 
+
+shop <-
+  simmer("shop") %>%
+  add_resource("server1", 1) %>%
+  add_resource("server2", 1) %>%
+  add_generator("Client", client, function() rexp(1, 1/5))
+
+run(shop, until = 240)
+
+# Monitoring the process
+resources <- get_mon_resources(shop)
+plot(resources, metric = "utilization")
+plot(resources, metric = "usage", steps = T)
+```
+
+## Simulate a ambulatory consultation service
+
+First a patient is seen by a nurse for preliminary steps. Then the patient is seen by two doctors for the consultation and finally by administrative staff to schedule a follow-up appointment or other tasks.
+
+Construct a patient trajectory defining the previous steps
+
+```{r}
+patient <- trajectory("patients") %>% 
+           ## add nurse 
+           seize("nurse",1) %>% 
+           timeout(function() rnorm(1, 15)) %>%
+           release("nurse", 1) %>%
+           ## add a consultation activity
+           seize("doctor", 2) %>%
+           timeout(function() rnorm(1, 20)) %>%
+           release("doctor", 2) %>%
+           ## add a planning activity
+           seize("admin", 1) %>%
+           timeout(function() rnorm(1, 5)) %>%
+           release("admin", 1)
+
+plot(patient)  
+```
+
+Now attach arrivals and define the resources needed with capacities
+
+```{r}
+envs <- lapply(1:100, function(i) {
+          simmer("health center") %>%
+          add_resource("nurse", 3) %>%
+          add_resource("doctor", 4) %>%
+          add_resource("admin", 2) %>%
+          add_generator("patient", patient, function() rexp(1, 1/5)) %>%
+          run(until=480)})
+```
+
+```{r}
+plot(get_mon_resources(envs), metric = "utilization")
+plot(get_mon_resources(envs), metric = "usage", items = "server")
+plot(get_mon_arrivals(envs), metric = "waiting_time")
+```
+
